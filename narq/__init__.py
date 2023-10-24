@@ -10,17 +10,17 @@ from redis.asyncio.client import Redis
 from redis.asyncio.connection import ConnectionPool
 from redis.asyncio.sentinel import Sentinel
 
-from rearq import constants
-from rearq.constants import CHANNEL, JOB_TIMEOUT_UNLIMITED
-from rearq.enums import ChannelType
-from rearq.exceptions import UsageError
-from rearq.task import CronTask, Task
+from narq import constants
+from narq.constants import CHANNEL, JOB_TIMEOUT_UNLIMITED
+from narq.enums import ChannelType
+from narq.exceptions import UsageError
+from narq.task import CronTask, Task
 
 Serializer = Callable[[Dict[str, Any]], bytes]
 Deserializer = Callable[[bytes], Dict[str, Any]]
 
 
-class ReArq:
+class Narq:
     _redis: Optional[Redis] = None
     _task_map: Dict[str, Task] = {}
     _queue_task_map: Dict[str, List[str]] = {}
@@ -124,7 +124,7 @@ class ReArq:
             function=func,
             name=task_name,
             queue=constants.QUEUE_KEY_PREFIX + queue if queue else constants.DEFAULT_QUEUE,
-            rearq=self,
+            narq=self,
             job_retry=job_retry or self.job_retry,
             job_retry_after=job_retry_after or self.job_retry_after,
             job_timeout=(

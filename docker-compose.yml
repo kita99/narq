@@ -2,7 +2,7 @@ version: "3"
 services:
   server:
     build: .
-    image: rearq
+    image: narq
     restart: always
-    command: rearq examples.tasks:rearq server
+    command: narq examples.tasks:narq server
     network_mode: host

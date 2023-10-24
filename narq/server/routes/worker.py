@@ -6,16 +6,16 @@ from starlette.requests import Request
 from tortoise import timezone
 from tortoise.functions import Count
 
-from rearq import constants
-from rearq.server import templates
-from rearq.server.depends import get_redis
-from rearq.server.models import JobResult
-from rearq.utils import ms_to_datetime
+from narq import constants
+from narq.server import templates
+from narq.server.depends import get_redis
+from narq.server.models import JobResult
+from narq.utils import ms_to_datetime
 
 router = APIRouter()
 
 
-@router.get("", include_in_schema=False, name="rearq.get_workers")
+@router.get("", include_in_schema=False, name="narq.get_workers")
 async def get_workers(request: Request, redis: Redis = Depends(get_redis)):
     workers_info = await redis.hgetall(constants.WORKER_KEY)
     workers = []
@@ -46,6 +46,6 @@ async def get_workers(request: Request, redis: Redis = Depends(get_redis)):
     )
 
 
-@router.delete("", name="rearq.delete_worker")
+@router.delete("", name="narq.delete_worker")
 async def delete_worker(name: str, redis: Redis = Depends(get_redis)):
     return await redis.hdel(constants.WORKER_KEY, name)

@@ -2,19 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from starlette.requests import Request
 from starlette.status import HTTP_409_CONFLICT
 
-from rearq import CronTask, ReArq
-from rearq.server import templates
-from rearq.server.depends import get_rearq
-from rearq.server.models import JobResult
-from rearq.server.schemas import TaskStatus, UpdateTask
-from rearq.utils import ms_to_datetime
+from narq import CronTask, Narq
+from narq.server import templates
+from narq.server.depends import get_narq
+from narq.server.models import JobResult
+from narq.server.schemas import TaskStatus, UpdateTask
+from narq.utils import ms_to_datetime
 
 router = APIRouter()
 
 
-@router.get("", include_in_schema=False, name="rearq.get_tasks")
-async def get_tasks(request: Request, rearq: ReArq = Depends(get_rearq)):
-    task_map = rearq.task_map
+@router.get("", include_in_schema=False, name="narq.get_tasks")
+async def get_tasks(request: Request, narq: Narq = Depends(get_narq)):
+    task_map = narq.task_map
     tasks = []
     cron_tasks = []
     for task_name, task in task_map.items():
@@ -46,9 +46,9 @@ async def get_tasks(request: Request, rearq: ReArq = Depends(get_rearq)):
     )
 
 
-@router.put("", name="rearq.update_task")
-async def update_task(ut: UpdateTask, rearq: ReArq = Depends(get_rearq)):
-    task_map = rearq.task_map
+@router.put("", name="narq.update_task")
+async def update_task(ut: UpdateTask, narq: Narq = Depends(get_narq)):
+    task_map = narq.task_map
     task = task_map.get(ut.task_name)
     if task:
         if task.is_builtin:

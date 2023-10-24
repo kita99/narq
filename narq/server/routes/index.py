@@ -6,10 +6,10 @@ from pypika.functions import Date
 from starlette.requests import Request
 from tortoise.functions import Count, Function
 
-from rearq import ReArq, constants
-from rearq.server import templates
-from rearq.server.depends import get_rearq, get_redis
-from rearq.server.models import Job, JobResult
+from narq import Narq, constants
+from narq.server import templates
+from narq.server.depends import get_narq, get_redis
+from narq.server.models import Job, JobResult
 
 router = APIRouter()
 
@@ -18,14 +18,14 @@ class ToDate(Function):
     database_func = Date
 
 
-@router.get("/", include_in_schema=False, name="rearq.index")
+@router.get("/", include_in_schema=False, name="narq.index")
 async def index(
     request: Request,
-    rearq: ReArq = Depends(get_rearq),
+    narq: Narq = Depends(get_narq),
     redis=Depends(get_redis),
     task: Optional[str] = None,
 ):
-    task_map = rearq.task_map
+    task_map = narq.task_map
     task_num = len(task_map)
     workers_info = await redis.hgetall(constants.WORKER_KEY)
     worker_num = len(workers_info)

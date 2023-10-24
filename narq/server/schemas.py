@@ -3,7 +3,7 @@ from typing import Any, List, Optional, Union
 
 from pydantic import BaseModel
 
-from rearq.enums import TaskStatus
+from narq.enums import TaskStatus
 
 
 class AddJobIn(BaseModel):

@@ -4,9 +4,9 @@ from loguru import logger
 from tortoise import Tortoise
 
 from examples import settings
-from rearq import JOB_TIMEOUT_UNLIMITED, ReArq
+from narq import JOB_TIMEOUT_UNLIMITED, Narq
 
-rearq = ReArq(
+narq = Narq(
     redis_url=settings.REDIS_URL,
     delay_queue_num=2,
     keep_job_days=30,
@@ -16,36 +16,36 @@ rearq = ReArq(
 )
 
 
-@rearq.on_shutdown
+@narq.on_shutdown
 async def on_shutdown():
-    logger.debug("rearq is shutdown")
+    logger.debug("narq is shutdown")
 
 
-@rearq.on_startup
+@narq.on_startup
 async def on_startup():
-    logger.debug("rearq is startup")
+    logger.debug("narq is startup")
     await Tortoise.init(
         db_url=settings.DB_URL,
-        modules={"rearq": ["rearq.server.models"]},
+        modules={"narq": ["narq.server.models"]},
     )
 
 
-@rearq.task(run_at_start=(1, 1))
+@narq.task(run_at_start=(1, 1))
 async def add(a, b):
     return a + b
 
 
-@rearq.task(run_with_lock=True)
+@narq.task(run_with_lock=True)
 async def run_with_lock():
     await asyncio.sleep(10)
     return "run_with_lock"
 
 
-@rearq.task(job_timeout=JOB_TIMEOUT_UNLIMITED)
+@narq.task(job_timeout=JOB_TIMEOUT_UNLIMITED)
 async def sleep(time: float):
     return await asyncio.sleep(time)
 
 
-@rearq.task(cron="0 * * * *")
+@narq.task(cron="0 * * * *")
 async def timer_add():
     return "timer"

@@ -1,12 +1,12 @@
 class UsageError(Exception):
     """
-    ReArq usage error
+    Narq usage error
     """
 
 
 class ConfigurationError(Exception):
     """
-    ReArq configuration error
+    Narq configuration error
     """
 
 

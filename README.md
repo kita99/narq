@@ -1,50 +1,37 @@
-# ReArq
+# narq
 
-[![image](https://img.shields.io/pypi/v/rearq.svg?style=flat)](https://pypi.python.org/pypi/rearq)
-[![image](https://img.shields.io/github/license/long2ice/rearq)](https://github.com/long2ice/rearq)
-[![image](https://github.com/long2ice/rearq/workflows/pypi/badge.svg)](https://github.com/long2ice/rearq/actions?query=workflow:pypi)
-[![image](https://github.com/long2ice/rearq/workflows/ci/badge.svg)](https://github.com/long2ice/rearq/actions?query=workflow:ci)
+[![image](https://img.shields.io/pypi/v/narq.svg?style=flat)](https://pypi.python.org/pypi/narq)
+[![image](https://img.shields.io/github/license/kita99/narq)](https://github.com/kita99/narq)
+[![image](https://github.com/kita99/narq/workflows/pypi/badge.svg)](https://github.com/kita99/narq/actions?query=workflow:pypi)
+[![image](https://github.com/kita99/narq/workflows/ci/badge.svg)](https://github.com/kita99/narq/actions?query=workflow:ci)
 
 ## Introduction
 
-ReArq is a distributed task queue with asyncio and redis, which rewrite from [arq](https://github.com/samuelcolvin/arq)
-to make improvement and include web interface.
+narq is a distributed task queue with asyncio and redis, which is built upon
+[ReArq](https://github.com/samuelcolvin/arq) (itself a rewrite of [arq](https://github.com/samuelcolvin/arq))
 
-You can try [Demo Online](https://rearq.long2ice.io) here.
+
+## Motivations
+
+This project is an independent fork of ReArq because it is fundamentally different in its goals. Narq is intended as a
+simple to reason about production-grade task queue.
 
 ## Features
 
 - AsyncIO support, easy integration with [FastAPI](https://github.com/tiangolo/fastapi).
-- Delay task, cron task and async task support.
-- Full-featured build-in web interface.
-- Built-in distributed task lock to make same task only run one at the same time.
+- Delayed tasks, cron tasks and async task support.
+- Full-featured built-in web interface.
+- Built-in distributed task lock to ensure a given task is ran one at a time.
 - Other powerful features to be discovered.
 
-## Screenshots
+## Web Interface
 
 ![dashboard](./images/dashboard.png)
-![worker](./images/worker.png)
-![task](./images/task.png)
-![job](./images/job.png)
-![result](./images/result.png)
 
 ## Requirements
 
 - Redis >= 5.0
 
-## Install
-
-Use MySQL backend:
-
-```shell
-pip install rearq[mysql]
-```
-
-Use PostgreSQL backend:
-
-```shell
-pip install rearq[postgres]
-```
 
 ## Quick Start
 
@@ -52,67 +39,62 @@ pip install rearq[postgres]
 
 ```python
 # main.py
-from rearq import ReArq
+from narq import Narq
 
-rearq = ReArq(db_url='mysql://root:123456@127.0.0.1:3306/rearq')
+narq = Narq(db_url='mysql://root:123456@127.0.0.1:3306/narq')
 
 
-@rearq.on_shutdown
+@narq.on_shutdown
 async def on_shutdown():
-    # you can do some clean work here like close db and so on...
+    # you can do some clean up work here like close db and so on...
     print("shutdown")
 
 
-@rearq.on_startup
+@narq.on_startup
 async def on_startup():
-    # you should do some initialization work here
+    # you can do some initialization work here
     print("startup")
-    # you must init Tortoise ORM here
-    await Tortoise.init(
-        db_url=settings.DB_URL,
-        modules={"rearq": ["rearq.server.models"]},
-    )
 
 
-@rearq.task(queue="q1")
+@narq.task(queue="q1")
 async def add(self, a, b):
     return a + b
 
 
-@rearq.task(cron="*/5 * * * * * *")  # run task per 5 seconds
+@narq.task(cron="*/5 * * * * * *")  # run task per 5 seconds
 async def timer(self):
     return "timer"
 ```
 
-### Run rearq worker
+### Run narq worker
 
 ```shell
-> rearq main:rearq worker -q q1 -q q2 # consume tasks from q1 and q2 as the same time
+> narq main:narq worker -q q1 -q q2 # consume tasks from q1 and q2 as the same time
 ```
 
 ```log
-2021-03-29 09:54:50.464 | INFO     | rearq.worker:_main:95 - Start worker success with queue: rearq:queue:default
-2021-03-29 09:54:50.465 | INFO     | rearq.worker:_main:96 - Registered tasks: add, sleep, timer_add
-2021-03-29 09:54:50.465 | INFO     | rearq.worker:log_redis_info:86 - redis_version=6.2.1 mem_usage=1.43M clients_connected=5 db_keys=6
+2021-03-29 09:54:50.464 | INFO     | narq.worker:_main:95 - Started worker successfully on queue: narq:queue:default
+2021-03-29 09:54:50.465 | INFO     | narq.worker:_main:96 - Registered tasks: add, sleep, timer_add
+2021-03-29 09:54:50.465 | INFO     | narq.worker:log_redis_info:86 - redis_version=6.2.1 mem_usage=1.43M clients_connected=5 db_keys=6
 ```
 
-### Run rearq timer
+### Run narq timer
 
 If you have timing task or delay task, you should run another command also:
 
 ```shell
-> rearq main:rearq timer
+> narq main:narq timer
 ```
 
 ```log
-2021-03-29 09:54:43.878 | INFO     | rearq.worker:_main:275 - Start timer success
-2021-03-29 09:54:43.887 | INFO     | rearq.worker:_main:277 - Registered timer tasks: timer_add
-2021-03-29 09:54:43.894 | INFO     | rearq.worker:log_redis_info:86 - redis_version=6.2.1 mem_usage=1.25M clients_connected=2 db_keys=6
+2021-03-29 09:54:43.878 | INFO     | narq.worker:_main:275 - Start timer successfully
+2021-03-29 09:54:43.887 | INFO     | narq.worker:_main:277 - Registered timer tasks: timer_add
+2021-03-29 09:54:43.894 | INFO     | narq.worker:log_redis_info:86 - redis_version=6.2.1 mem_usage=1.25M clients_connected=2 db_keys=6
 ```
 
-Also, you can run timer with worker together by `rearq main:rearq worker -t`.
+Also, you can run timer with worker together by `narq main:narq worker -t`.
 
-### Integration in FastAPI
+### Integration with FastAPI
 
 ```python
 from fastapi import FastAPI
@@ -120,17 +102,9 @@ from fastapi import FastAPI
 app = FastAPI()
 
 
-@app.on_event("startup")
-async def startup() -> None:
-    await Tortoise.init(
-        db_url=settings.DB_URL,
-        modules={"rearq": ["rearq.server.models"]},
-    )
-
-
 @app.on_event("shutdown")
 async def shutdown() -> None:
-    await rearq.close()
+    await narq.close()
 
 
 # then run task in view
@@ -148,11 +122,12 @@ async def test():
     return result
 ```
 
+
 ## Start web interface
 
 ```shell
-> rearq main:rearq server
-Usage: rearq server [OPTIONS]
+> narq main:narq server
+Usage: narq server [OPTIONS]
 
   Start rest api server.
 
@@ -162,30 +137,30 @@ Options:
   -h, --help          Show this message and exit..
 ```
 
-After server run, you can visit [https://127.0.0.1:8000/docs](https://127.0.0.1:8000/docs) to see all apis
-and [https://127.0.0.1:8000](https://127.0.0.1:8000) to see web interface.
+After starting the server, check [https://127.0.0.1:8000/docs](https://127.0.0.1:8000/docs) to see all endpoints and
+[https://127.0.0.1:8000](https://127.0.0.1:8000) to use the web interface.
 
-Other options will pass into `uvicorn` directly, such as `--root-path` etc.
+Other options will be passed into `uvicorn` directly, such as `--root-path` etc.
 
 ```shell
-rearq main:rearq server --host 0.0.0.0 --root-path /rearq
+narq main:narq server --host 0.0.0.0 --root-path /narq
 ```
 
 ### Mount as FastAPI sub app
 
-You can also mount rearq server as FastAPI sub app.
+If you have an existing FastAPI service, to simplify your deployment you might want to mount the narq server as a FastAPI sub app.
 
 ```python
 
 from fastapi import FastAPI
 
-from examples.tasks import rearq
-from rearq.server.app import app as rearq_app
+from examples.tasks import narq
+from narq.server.app import app as narq
 
 app = FastAPI()
 
-app.mount("/rearq", rearq_app)
-rearq_app.set_rearq(rearq)
+app.mount("/narq", narq_app)
+narq_app.set_narq(narq)
 ```
 
 ### Start worker inside app
@@ -195,13 +170,15 @@ You can also start worker inside your app.
 ```python
 @app.on_event("startup")
 async def startup():
-    await rearq.init()
-    await rearq_app.start_worker(with_timer=True, block=False)
+    await narq.init()
+    await narq.start_worker(with_timer=True, block=False)
 ```
 
 ## ThanksTo
 
 - [arq](https://github.com/samuelcolvin/arq), Fast job queuing and RPC in python with asyncio and redis.
+- [ReArq](https://github.com/samuelcolvin/arq), Improved arq rewrite with an API + web interface
+
 
 ## License
 

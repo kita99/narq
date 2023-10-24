@@ -4,16 +4,16 @@ from fastapi import APIRouter, Depends
 from redis.asyncio.client import Redis
 from starlette.requests import Request
 
-from rearq import ReArq, constants
-from rearq.server import templates
-from rearq.server.depends import get_pager, get_rearq, get_redis
-from rearq.server.models import JobResult
-from rearq.server.responses import JobResultListOut
+from narq import Narq, constants
+from narq.server import templates
+from narq.server.depends import get_pager, get_narq, get_redis
+from narq.server.models import JobResult
+from narq.server.responses import JobResultListOut
 
 router = APIRouter()
 
 
-@router.get("/data", response_model=JobResultListOut, name="rearq.get_results")
+@router.get("/data", response_model=JobResultListOut, name="narq.get_results")
 async def get_results(
     task: Optional[str] = None,
     job_id: Optional[str] = None,
@@ -40,16 +40,16 @@ async def get_results(
     return {"rows": results, "total": await qs.count()}
 
 
-@router.delete("", name="rearq.delete_result")
+@router.delete("", name="narq.delete_result")
 async def delete_result(ids: str):
     return await JobResult.filter(id__in=ids.split(",")).delete()
 
 
-@router.get("", include_in_schema=False, name="rearq.job_result_page")
+@router.get("", include_in_schema=False, name="narq.job_result_page")
 async def job_result_page(
     request: Request,
     redis: Redis = Depends(get_redis),
-    rearq: ReArq = Depends(get_rearq),
+    narq: Narq = Depends(get_narq),
 ):
     workers_info = await redis.hgetall(constants.WORKER_KEY)
 
@@ -58,7 +58,7 @@ async def job_result_page(
         {
             "request": request,
             "page_title": "result",
-            "tasks": rearq.task_map.keys(),
+            "tasks": narq.task_map.keys(),
             "workers": workers_info.keys(),
         },
     )

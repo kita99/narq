@@ -7,13 +7,13 @@ from crontab import CronTab
 from loguru import logger
 from tortoise import timezone
 
-from rearq import constants
-from rearq.constants import CHANNEL, WORKER_KEY
-from rearq.enums import ChannelType, JobStatus
-from rearq.exceptions import TaskDisabledError
-from rearq.server.models import Job, JobResult
-from rearq.server.schemas import TaskStatus
-from rearq.utils import timestamp_ms_now, to_ms_timestamp
+from narq import constants
+from narq.constants import CHANNEL, WORKER_KEY
+from narq.enums import ChannelType, JobStatus
+from narq.exceptions import TaskDisabledError
+from narq.server.models import Job, JobResult
+from narq.server.schemas import TaskStatus
+from narq.utils import timestamp_ms_now, to_ms_timestamp
 
 
 class Task:
@@ -23,7 +23,7 @@ class Task:
         name: str,
         function: Callable,
         queue: str,
-        rearq,
+        narq,
         job_retry: int,
         job_retry_after: int,
         job_timeout: int,
@@ -35,14 +35,14 @@ class Task:
         self.job_retry_after = job_retry_after
         self.job_timeout = job_timeout
         self.queue = queue
-        self.rearq = rearq
+        self.narq = narq
         self.function = function
         self.bind = bind
         self.expire = expire
         self.name = name
         self.run_with_lock = run_with_lock
         self.run_at_start = run_at_start
-        self.redis = rearq.redis
+        self.redis = narq.redis
 
     @property
     def is_builtin(self):
@@ -132,7 +132,7 @@ class Task:
         if not eta and not countdown:
             job.status = JobStatus.queued
             await job.save()
-            await self.rearq.redis.xadd(self.queue, {"job_id": job_id})
+            await self.narq.redis.xadd(self.queue, {"job_id": job_id})
         else:
             if countdown:
                 defer_ms = to_ms_timestamp(countdown)
@@ -142,8 +142,8 @@ class Task:
                 defer_ms = timestamp_ms_now()
             job.status = JobStatus.deferred
             await job.save()
-            await self.rearq.zadd(defer_ms, f"{self.queue}:{job_id}")
-            await self.rearq.pub_delay(defer_ms)
+            await self.narq.zadd(defer_ms, f"{self.queue}:{job_id}")
+            await self.narq.pub_delay(defer_ms)
         return job
 
 
@@ -152,7 +152,7 @@ async def check_pending_msgs(self: Task, timeout: int):
     check pending messages
     :return:
     """
-    redis = self.rearq.redis
+    redis = self.narq.redis
     queues = {}
     workers = await redis.hgetall(WORKER_KEY)
     for worker_name, worker_info in workers.items():
@@ -191,8 +191,8 @@ async def check_pending_msgs(self: Task, timeout: int):
 
 
 async def check_keep_job(self: Task):
-    rearq = self.rearq
-    keep_job_days = rearq.keep_job_days
+    narq = self.narq
+    keep_job_days = narq.keep_job_days
     time = timezone.now() - datetime.timedelta(days=keep_job_days)
     return await Job.filter(
         status__in=[JobStatus.failed, JobStatus.success, JobStatus.expired],
@@ -210,7 +210,7 @@ class CronTask(Task):
         name: str,
         function: Callable,
         queue: str,
-        rearq,
+        narq,
         job_retry: int,
         job_retry_after: int,
         job_timeout: int,
@@ -224,7 +224,7 @@ class CronTask(Task):
             name,
             function,
             queue,
-            rearq,
+            narq,
             job_retry,
             job_retry_after,
             job_timeout,

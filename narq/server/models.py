@@ -3,7 +3,7 @@ from typing import Optional
 
 from tortoise import Model, fields
 
-from rearq.enums import JobStatus
+from narq.enums import JobStatus
 
 
 class Job(Model):
@@ -20,7 +20,7 @@ class Job(Model):
 
     class Meta:
         ordering = ["-id"]
-        table = "rearq_job"
+        table = "narq_job"
 
     async def result(self, timeout: Optional[int] = None):
         while timeout > 0:
@@ -32,7 +32,7 @@ class Job(Model):
 
 
 class JobResult(Model):
-    job: fields.ForeignKeyRelation[Job] = fields.ForeignKeyField("rearq.Job")
+    job: fields.ForeignKeyRelation[Job] = fields.ForeignKeyField("narq.Job")
     worker = fields.CharField(max_length=200)
     success = fields.BooleanField(default=False)
     msg_id = fields.CharField(max_length=200, unique=True)
@@ -42,4 +42,4 @@ class JobResult(Model):
 
     class Meta:
         ordering = ["-id"]
-        table = "rearq_job_results"
+        table = "narq_job_results"

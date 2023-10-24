@@ -1,16 +1,16 @@
 [tool.poetry]
-name = "rearq"
+name = "narq"
 version = "0.2.9"
 description = "A distributed task queue built with asyncio and redis, with built-in web interface"
-authors = ["long2ice <long2ice@gmail.com>"]
+authors = ["Adrian <adriandinis99@gmail.com>"]
 license = "Apache-2.0"
 readme = "README.md"
-homepage = "https://github.com/long2ice/rearq.git"
-repository = "https://github.com/long2ice/rearq.git"
-documentation = "https://github.com/long2ice/rearq/blob/master/README.md"
+homepage = "https://github.com/kita99/narq.git"
+repository = "https://github.com/kita99/narq.git"
+documentation = "https://github.com/kita99/narq/blob/master/README.md"
 keywords = ["asyncio", "task", "arq", "queue", "distributed"]
 packages = [
-    { include = "rearq" }
+    { include = "narq" }
 ]
 include = ["LICENSE", "README.md", "CHANGELOG.md"]
 
@@ -22,7 +22,6 @@ crontab = "*"
 fastapi = { version = "*", extras = ["all"] }
 loguru = "*"
 aiofiles = "*"
-tortoise-orm = { git = "https://github.com/tortoise/tortoise-orm.git", branch = "develop" }
 asyncmy = { version = "^0.2.8", optional = true }
 asyncpg = { version = "*", optional = true }
 
@@ -46,7 +45,7 @@ requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry.scripts]
-rearq = "rearq.cli:main"
+narq = "narq.cli:main"
 
 [tool.black]
 line-length = 100

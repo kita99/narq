@@ -8,9 +8,9 @@ import click
 import uvicorn
 from click import BadArgumentUsage, Context
 
-from rearq.server.app import app
-from rearq.version import VERSION
-from rearq.worker import TimerWorker, Worker
+from narq.server.app import app
+from narq.version import VERSION
+from narq.worker import TimerWorker, Worker
 
 
 def coro(f):
@@ -28,24 +28,24 @@ def coro(f):
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(VERSION, "-v", "--version")
 @click.option("--verbose", default=False, is_flag=True, help="Enable verbose output.")
-@click.argument("rearq", required=True)
+@click.argument("narq", required=True)
 @click.pass_context
 @coro
-async def cli(ctx: Context, rearq: str, verbose: bool):
-    splits = rearq.split(":")
-    rearq_path = splits[0]
-    rearq = splits[1]
+async def cli(ctx: Context, narq: str, verbose: bool):
+    splits = narq.split(":")
+    narq_path = splits[0]
+    narq = splits[1]
     app.debug = verbose
     try:
-        module = importlib.import_module(rearq_path)
-        r = getattr(module, rearq, None)  # type:ReArq
+        module = importlib.import_module(narq_path)
+        r = getattr(module, narq, None)  # type:Narq
         await r.startup()
         ctx.ensure_object(dict)
-        ctx.obj["rearq"] = r
+        ctx.obj["narq"] = r
         ctx.obj["verbose"] = verbose
 
     except (ModuleNotFoundError, AttributeError) as e:
-        raise BadArgumentUsage(ctx=ctx, message=f"Init rearq error, {e}.")
+        raise BadArgumentUsage(ctx=ctx, message=f"Init narq error, {e}.")
 
 
 @cli.command(help="Start a worker.")
@@ -62,10 +62,10 @@ async def cli(ctx: Context, rearq: str, verbose: bool):
 async def worker(
     ctx: Context, queue: List[str], group_name: str, consumer_name: str, with_timer: bool
 ):
-    rearq = ctx.obj["rearq"]
-    w = Worker(rearq, queues=queue, group_name=group_name, consumer_name=consumer_name)
+    narq = ctx.obj["narq"]
+    w = Worker(narq, queues=queue, group_name=group_name, consumer_name=consumer_name)
     if with_timer:
-        t = TimerWorker(rearq)
+        t = TimerWorker(narq)
         await asyncio.gather(w.run(), t.run())
     else:
         await w.run()
@@ -75,8 +75,8 @@ async def worker(
 @click.pass_context
 @coro
 async def timer(ctx: Context):
-    rearq = ctx.obj["rearq"]
-    w = TimerWorker(rearq)
+    narq = ctx.obj["narq"]
+    w = TimerWorker(narq)
     await w.run()
 
 
@@ -89,19 +89,19 @@ async def timer(ctx: Context):
 )
 @click.pass_context
 def server(ctx: Context):
-    rearq = ctx.obj["rearq"]
-    app.set_rearq(rearq)
+    narq = ctx.obj["narq"]
+    app.set_narq(narq)
 
     @app.on_event("shutdown")
     async def shutdown():
-        await rearq.close()
+        await narq.close()
 
     kwargs = {
         ctx.args[i][2:].replace("-", "_"): ctx.args[i + 1] for i in range(0, len(ctx.args), 2)
     }
     if "port" in kwargs:
         kwargs["port"] = int(kwargs["port"])
-    uvicorn.run("rearq.server.app:app", **kwargs)
+    uvicorn.run("narq.server.app:app", **kwargs)
 
 
 def main():

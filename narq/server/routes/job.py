@@ -5,20 +5,20 @@ from redis.asyncio.client import Redis
 from starlette.requests import Request
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 
-from rearq import ReArq, constants
-from rearq.enums import JobStatus
-from rearq.server import templates
-from rearq.server.depends import get_pager, get_rearq, get_redis
-from rearq.server.models import Job, JobResult
-from rearq.server.responses import JobListOut, JobOut
-from rearq.server.schemas import AddJobIn, CancelJobIn, TaskStatus, UpdateJobIn
+from narq import Narq, constants
+from narq.enums import JobStatus
+from narq.server import templates
+from narq.server.depends import get_pager, get_narq, get_redis
+from narq.server.models import Job, JobResult
+from narq.server.responses import JobListOut, JobOut
+from narq.server.schemas import AddJobIn, CancelJobIn, TaskStatus, UpdateJobIn
 
 router = APIRouter()
 
 
-@router.get("", include_in_schema=False, name="rearq.job_page")
+@router.get("", include_in_schema=False, name="narq.job_page")
 async def job_page(
-    request: Request, redis: Redis = Depends(get_redis), rearq: ReArq = Depends(get_rearq)
+    request: Request, redis: Redis = Depends(get_redis), narq: Narq = Depends(get_narq)
 ):
     workers_info = await redis.hgetall(constants.WORKER_KEY)
     return templates.TemplateResponse(
@@ -26,14 +26,14 @@ async def job_page(
         {
             "request": request,
             "page_title": "job",
-            "tasks": rearq.task_map.keys(),
+            "tasks": narq.task_map.keys(),
             "workers": workers_info.keys(),
             "job_status": JobStatus,
         },
     )
 
 
-@router.get("/data", response_model=JobListOut, name="rearq.get_jobs")
+@router.get("/data", response_model=JobListOut, name="narq.get_jobs")
 async def get_jobs(
     task: Optional[str] = None,
     job_id: Optional[str] = None,
@@ -57,12 +57,12 @@ async def get_jobs(
     return {"rows": results, "total": await qs.count()}
 
 
-@router.get("/result", name="rearq.get_job_result")
+@router.get("/result", name="narq.get_job_result")
 async def get_job_result(job_id: str):
     return await JobResult.get_or_none(job_id=job_id)
 
 
-@router.put("", name="rearq.update_job")
+@router.put("", name="narq.update_job")
 async def update_job(update_job_in: UpdateJobIn):
     job = await Job.get_or_none(job_id=update_job_in.job_id)
     if not job:
@@ -73,13 +73,13 @@ async def update_job(update_job_in: UpdateJobIn):
         raise HTTPException(status_code=HTTP_409_CONFLICT, detail="Can't update job")
 
 
-@router.put("/cancel", name="rearq.cancel_job")
-async def cancel_job(cancel_job_in: CancelJobIn, rearq: ReArq = Depends(get_rearq)):
+@router.put("/cancel", name="narq.cancel_job")
+async def cancel_job(cancel_job_in: CancelJobIn, narq: Narq = Depends(get_narq)):
     job = await Job.get_or_none(job_id=cancel_job_in.job_id)
     if not job:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Can't find job")
     if job.status in [JobStatus.queued, JobStatus.deferred, JobStatus.in_progress]:
-        task_map = rearq.task_map
+        task_map = narq.task_map
         task = task_map.get(job.task)
         if task:
             await task.cancel(job.job_id)
@@ -89,15 +89,15 @@ async def cancel_job(cancel_job_in: CancelJobIn, rearq: ReArq = Depends(get_rear
         raise HTTPException(status_code=HTTP_409_CONFLICT, detail="Can't cancel job")
 
 
-@router.delete("", name="rearq.delete_job")
+@router.delete("", name="narq.delete_job")
 async def delete_job(ids: str):
     return await Job.filter(id__in=ids.split(",")).delete()
 
 
-@router.post("", response_model=JobOut, name="rearq.add_job")
-async def add_job(add_job_in: AddJobIn, rearq: ReArq = Depends(get_rearq)):
-    task = rearq.task_map.get(add_job_in.task)
-    if await rearq.redis.hget(constants.TASK_KEY, add_job_in.task) == TaskStatus.disabled:
+@router.post("", response_model=JobOut, name="narq.add_job")
+async def add_job(add_job_in: AddJobIn, narq: Narq = Depends(get_narq)):
+    task = narq.task_map.get(add_job_in.task)
+    if await narq.redis.hget(constants.TASK_KEY, add_job_in.task) == TaskStatus.disabled:
         raise HTTPException(status_code=HTTP_409_CONFLICT, detail="Task is disabled")
     if not task:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="No such task")

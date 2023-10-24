@@ -14,15 +14,15 @@ from redis.exceptions import LockError, LockNotOwnedError, ResponseError
 from tortoise import timezone
 from tortoise.expressions import F
 
-from rearq import CronTask, UsageError, constants, signals
-from rearq.constants import CHANNEL, DEFAULT_QUEUE, DELAY_QUEUE, QUEUE_KEY_PREFIX
-from rearq.enums import ChannelType, JobStatus
-from rearq.server.models import Job, JobResult
-from rearq.task import check_keep_job, check_pending_msgs
-from rearq.utils import args_to_string, ms_to_datetime, timestamp_ms_now, to_ms_timestamp
+from narq import CronTask, UsageError, constants, signals
+from narq.constants import CHANNEL, DEFAULT_QUEUE, DELAY_QUEUE, QUEUE_KEY_PREFIX
+from narq.enums import ChannelType, JobStatus
+from narq.server.models import Job, JobResult
+from narq.task import check_keep_job, check_pending_msgs
+from narq.utils import args_to_string, ms_to_datetime, timestamp_ms_now, to_ms_timestamp
 
 if TYPE_CHECKING:
-    from rearq import ReArq
+    from narq import Narq
 Serializer = Callable[[Dict[str, Any]], bytes]
 Deserializer = Callable[[bytes], Dict[str, Any]]
 
@@ -30,23 +30,23 @@ Deserializer = Callable[[bytes], Dict[str, Any]]
 class Worker:
     def __init__(
         self,
-        rearq: "ReArq",
+        narq: "Narq",
         queues: Optional[List[str]] = None,
         group_name: Optional[str] = None,
         consumer_name: Optional[str] = None,
     ):
         self.group_name = group_name or socket.gethostname()
         self.consumer_name = consumer_name
-        self.job_timeout = rearq.job_timeout
-        self.max_jobs = rearq.max_jobs
-        self.rearq = rearq
-        self._redis = rearq.redis
+        self.job_timeout = narq.job_timeout
+        self.max_jobs = narq.max_jobs
+        self.narq = narq
+        self._redis = narq.redis
         self._lock = Lock(self._redis, name=constants.WORKER_KEY_LOCK)
         self.register_tasks = []
         self.queues = []
         if queues:
             for queue in queues:
-                self.register_tasks.extend(rearq.get_queue_tasks(queue))
+                self.register_tasks.extend(narq.get_queue_tasks(queue))
                 self.queues.append(QUEUE_KEY_PREFIX + queue)
         else:
             self.queues.append(DEFAULT_QUEUE)
@@ -55,13 +55,13 @@ class Worker:
         self.queue_read_limit = max(self.max_jobs * 5, 100)
         self._tasks: Set[asyncio.Task[Any]] = set()
         self._running_tasks_map: Dict[str, List[Tuple[str, asyncio.Task[Any]]]] = {}
-        self._task_map = rearq.task_map
+        self._task_map = narq.task_map
         self._sub_task = None
         self.jobs_complete = 0
         self.jobs_retried = 0
         self.jobs_failed = 0
-        self.job_retry = rearq.job_retry
-        self.job_retry_after = rearq.job_retry_after
+        self.job_retry = narq.job_retry
+        self.job_retry_after = narq.job_retry_after
         self._terminated = False
         signals.add_sig_handler(self._handle_sig)
 
@@ -233,7 +233,7 @@ class Worker:
                 )
                 job.status = JobStatus.deferred
                 job.job_retries = F("job_retries") + 1
-                await self.rearq.zadd(to_ms_timestamp(self.job_retry_after), f"{queue}:{job_id}")
+                await self.narq.zadd(to_ms_timestamp(self.job_retry_after), f"{queue}:{job_id}")
         finally:
             await self._xack(queue, msg_id)
             await job.save(update_fields=["status", "job_retries"])
@@ -242,7 +242,7 @@ class Worker:
 
         job_result.result = result
         await job_result.save()
-        if e and self.rearq.raise_job_error:
+        if e and self.narq.raise_job_error:
             raise e
         return job_result
 
@@ -328,20 +328,20 @@ class Worker:
             await self.close()
 
     async def close(self):
-        await self.rearq.shutdown()
-        await self.rearq.close()
+        await self.narq.shutdown()
+        await self.narq.close()
 
 
 class TimerWorker(Worker):
-    def __init__(self, rearq: "ReArq"):
-        super().__init__(rearq)
+    def __init__(self, narq: "Narq"):
+        super().__init__(narq)
         self.consumer_name = "timer"
         self.queue = DELAY_QUEUE
         self.sleep_until: Optional[float] = None
         self.sleep_task: Optional[asyncio.Task] = None
-        self.rearq.create_task(check_pending_msgs, True, self.queue, "* * * * *")
-        if rearq.keep_job_days:
-            self.rearq.create_task(check_keep_job, True, self.queue, "0 4 * * *")
+        self.narq.create_task(check_pending_msgs, True, self.queue, "* * * * *")
+        if narq.keep_job_days:
+            self.narq.create_task(check_keep_job, True, self.queue, "0 4 * * *")
 
     def _handle_sig(self, signum: Signals) -> None:
         self._terminated = True
@@ -367,7 +367,7 @@ class TimerWorker(Worker):
     async def _run_at_start(self):
         jobs = []
         p = self._redis.pipeline()
-        for task_name, task in self.rearq.task_map.items():
+        for task_name, task in self.narq.task_map.items():
             if task.run_at_start and await task.is_enabled():
                 args = None
                 kwargs = None
@@ -407,7 +407,7 @@ class TimerWorker(Worker):
             min_next_run = -1
         redis = self._redis
         p = redis.pipeline()
-        for queue in self.rearq.delay_queues:
+        for queue in self.narq.delay_queues:
             p.zrangebyscore(queue, start=0, num=1, withscores=True, min=-1, max=inf)
         jobs_id_list = await p.execute()
         jobs_id_list = list(filter(lambda x: True if x else False, jobs_id_list))
@@ -453,7 +453,7 @@ class TimerWorker(Worker):
     async def _main(self) -> None:
         tasks = list(CronTask.get_cron_tasks().keys())
         tasks.remove(check_pending_msgs.__name__)
-        if self.rearq.keep_job_days:
+        if self.narq.keep_job_days:
             tasks.remove(check_keep_job.__name__)
         logger.success("Start timer success")
         logger.info(f"Registered timer tasks: {', '.join(tasks)}")
@@ -531,7 +531,7 @@ class TimerWorker(Worker):
         redis = self._redis
         now = timestamp_ms_now()
         p = redis.pipeline()
-        for queue in self.rearq.delay_queues:
+        for queue in self.narq.delay_queues:
             p.zrangebyscore(queue, start=0, num=self.queue_read_limit, max=now, min=-1)
         try:
             jobs_id_list = await p.execute()
@@ -545,7 +545,7 @@ class TimerWorker(Worker):
                     job_id_info[separate + 1 :],
                 )  # noqa:
                 p.xadd(queue, {"job_id": job_id})
-                queue = self.rearq.get_delay_queue(job_id_info)
+                queue = self.narq.get_delay_queue(job_id_info)
                 p.zrem(queue, job_id_info)
         if jobs_id_list:
             await p.execute()

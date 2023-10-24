@@ -4,30 +4,30 @@ from tortoise.contrib.fastapi import register_tortoise
 
 from examples import settings
 from examples.models import Test
-from examples.tasks import add, rearq
-from rearq.server.app import app as rearq_app
+from examples.tasks import add, narq
+from narq.server.app import app as narq_app
 
 app = FastAPI()
 
 register_tortoise(
     app,
     db_url=settings.DB_URL,
-    modules={"models": ["examples.models"], "rearq": ["rearq.server.models"]},
+    modules={"models": ["examples.models"], "narq": ["narq.server.models"]},
     generate_schemas=True,
     add_exception_handlers=True,
 )
-app.mount("/rearq", rearq_app)
-rearq_app.set_rearq(rearq)
+app.mount("/narq", narq_app)
+narq_app.set_narq(narq)
 
 
 @app.on_event("startup")
 async def startup():
-    await rearq_app.start_worker(with_timer=True, block=False)
+    await narq_app.start_worker(with_timer=True, block=False)
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    await rearq.close()
+    await narq.close()
 
 
 @app.get("/")
