@@ -1,4 +1,6 @@
-# narq
+<p align="center">
+    <a href="https://narq.readthedocs.io/"><img src="https://github.com/kita99/narq/blob/master/images/logo.png?raw=true" width="600px" alt="narq" /></a>
+</p>
 
 [![image](https://img.shields.io/pypi/v/narq.svg?style=flat)](https://pypi.python.org/pypi/narq)
 [![image](https://img.shields.io/github/license/kita99/narq)](https://github.com/kita99/narq)
