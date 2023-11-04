@@ -147,7 +147,7 @@ class Task:
         return job
 
 
-async def check_pending_msgs(self: Task, timeout: int):
+async def check_pending_msgs(self: Task, timeout_seconds: int):
     """
     check pending messages
     :return:
@@ -179,8 +179,8 @@ async def check_pending_msgs(self: Task, timeout: int):
             )
             for msg in pending_msgs:
                 msg_id = msg.get("message_id")
-                idle_time = msg.get("time_since_delivered")
-                if int(idle_time / 10**6) > timeout * 2:
+                idle_time_milliseconds = msg.get("time_since_delivered")
+                if int(idle_time_milliseconds / 10**3) > timeout_seconds * 2:
                     execute = True
                     p.xack(queue, group, msg_id)
                     job_result = await JobResult.filter(msg_id=msg_id).only("job_id").first()
