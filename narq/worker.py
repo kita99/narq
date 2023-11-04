@@ -51,8 +51,8 @@ class Worker:
         else:
             self.queues.append(DEFAULT_QUEUE)
         self.loop = asyncio.get_event_loop()
+        self.barrier = asyncio.Barrier(self.max_jobs)
         self.sem = asyncio.BoundedSemaphore(self.max_jobs)
-        self.queue_read_limit = max(self.max_jobs * 5, 100)
         self._tasks: Set[asyncio.Task[Any]] = set()
         self._running_tasks_map: Dict[str, List[Tuple[str, asyncio.Task[Any]]]] = {}
         self._task_map = narq.task_map
@@ -106,11 +106,12 @@ class Worker:
         await self._log_redis_info()
         self._sub_task = asyncio.ensure_future(self._subscribe_channel())
         while not self._terminated:
+            await self.barrier.reset()
             msgs = await self._redis.xreadgroup(
                 self.group_name,
                 self.consumer_name,
                 streams={queue: ">" for queue in self.queues},
-                count=self.queue_read_limit,
+                count=self.max_jobs,
                 block=10000,
             )
             if not msgs:
@@ -137,6 +138,8 @@ class Worker:
                     task = asyncio.ensure_future(self._run_job(queue, msg_id, job))
                     task.add_done_callback(self._task_done)
                     self._tasks.add(task)
+
+            await self.barrier.wait()
 
     def _task_done(self, task):
         self.sem.release()
@@ -242,6 +245,7 @@ class Worker:
 
         job_result.result = result
         await job_result.save()
+        await self.barrier.wait()
         if e and self.narq.raise_job_error:
             raise e
         return job_result
@@ -532,7 +536,7 @@ class TimerWorker(Worker):
         now = timestamp_ms_now()
         p = redis.pipeline()
         for queue in self.narq.delay_queues:
-            p.zrangebyscore(queue, start=0, num=self.queue_read_limit, max=now, min=-1)
+            p.zrangebyscore(queue, start=0, num=self.max_jobs, max=now, min=-1)
         try:
             jobs_id_list = await p.execute()
         except ResponseError:
