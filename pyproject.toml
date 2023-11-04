@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "narq"
-version = "0.2.9"
+version = "0.1.0"
 description = "A distributed task queue built with asyncio and redis, with built-in web interface"
 authors = ["Adrian <adriandinis99@gmail.com>"]
 license = "Apache-2.0"
