@@ -15,9 +15,9 @@ packages = [
 include = ["LICENSE", "README.md", "CHANGELOG.md"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.11"
 click = "*"
-redis = "^4.2.0rc1"
+redis = "^5.0.1"
 crontab = "*"
 fastapi = { version = "*", extras = ["all"] }
 loguru = "*"
