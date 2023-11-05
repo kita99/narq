@@ -1,4 +1,5 @@
 import asyncio
+from asyncio.exceptions import BrokenBarrierError
 import json
 import os
 import socket
@@ -51,7 +52,7 @@ class Worker:
         else:
             self.queues.append(DEFAULT_QUEUE)
         self.loop = asyncio.get_event_loop()
-        self.barrier = asyncio.Barrier(self.max_jobs)
+        self.barrier = None
         self.sem = asyncio.BoundedSemaphore(self.max_jobs)
         self._tasks: Set[asyncio.Task[Any]] = set()
         self._running_tasks_map: Dict[str, List[Tuple[str, asyncio.Task[Any]]]] = {}
@@ -67,6 +68,12 @@ class Worker:
 
     async def terminate(self):
         self._terminated = True
+
+    async def _safe_wait(self):
+        try:
+            await self.barrier.wait()
+        except BrokenBarrierError:
+            pass
 
     def _handle_sig(self, signum: Signals) -> None:
         self._terminated = True
@@ -106,7 +113,6 @@ class Worker:
         await self._log_redis_info()
         self._sub_task = asyncio.ensure_future(self._subscribe_channel())
         while not self._terminated:
-            await self.barrier.reset()
             msgs = await self._redis.xreadgroup(
                 self.group_name,
                 self.consumer_name,
@@ -116,6 +122,9 @@ class Worker:
             )
             if not msgs:
                 continue
+
+            self.barrier = asyncio.Barrier(len(msgs) + 1)
+
             jobs_id = []
             for msg in msgs:
                 queue, msg_items = msg
@@ -134,12 +143,13 @@ class Worker:
                     if not job:
                         logger.warning(f"job {job_id} not found")
                         await self._xack(queue, msg_id)
+                        asyncio.create_task(self._safe_wait())
                         continue
                     task = asyncio.ensure_future(self._run_job(queue, msg_id, job))
                     task.add_done_callback(self._task_done)
                     self._tasks.add(task)
 
-            await self.barrier.wait()
+            await self._safe_wait()
 
     def _task_done(self, task):
         self.sem.release()
@@ -245,7 +255,7 @@ class Worker:
 
         job_result.result = result
         await job_result.save()
-        await self.barrier.wait()
+        await self._safe_wait()
         if e and self.narq.raise_job_error:
             raise e
         return job_result
