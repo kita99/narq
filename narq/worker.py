@@ -108,7 +108,7 @@ class Worker:
         await self._log_redis_info()
         self._sub_task = asyncio.ensure_future(self._subscribe_channel())
         while not self._terminated:
-            if self.job_counter >= self.max_jobs:
+            if self.job_counter >= self.max_jobs or len(self._tasks) >= self.max_jobs:
                 await asyncio.sleep(10)
                 continue
 
