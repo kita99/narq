@@ -38,7 +38,6 @@ class Worker:
         self.group_name = group_name or socket.gethostname()
         self.consumer_name = consumer_name
         self.job_timeout = narq.job_timeout
-        self.max_jobs = narq.max_jobs
         self.narq = narq
         self._redis = narq.redis
         self._lock = Lock(self._redis, name=constants.WORKER_KEY_LOCK)
@@ -51,8 +50,11 @@ class Worker:
         else:
             self.queues.append(DEFAULT_QUEUE)
         self.loop = asyncio.get_event_loop()
-        self.barrier = asyncio.Barrier(self.max_jobs)
+
+        self.max_jobs = narq.max_jobs
         self.sem = asyncio.BoundedSemaphore(self.max_jobs)
+        self.job_counter: int = 0
+
         self._tasks: Set[asyncio.Task[Any]] = set()
         self._running_tasks_map: Dict[str, List[Tuple[str, asyncio.Task[Any]]]] = {}
         self._task_map = narq.task_map
@@ -106,16 +108,20 @@ class Worker:
         await self._log_redis_info()
         self._sub_task = asyncio.ensure_future(self._subscribe_channel())
         while not self._terminated:
-            await self.barrier.reset()
+            if self.job_counter >= self.max_jobs or len(self._tasks) >= self.max_jobs:
+                await asyncio.sleep(10)
+                continue
+
             msgs = await self._redis.xreadgroup(
                 self.group_name,
                 self.consumer_name,
                 streams={queue: ">" for queue in self.queues},
-                count=self.max_jobs,
+                count=self.max_jobs - self.job_counter,
                 block=10000,
             )
             if not msgs:
                 continue
+
             jobs_id = []
             for msg in msgs:
                 queue, msg_items = msg
@@ -139,9 +145,8 @@ class Worker:
                     task.add_done_callback(self._task_done)
                     self._tasks.add(task)
 
-            await self.barrier.wait()
-
     def _task_done(self, task):
+        self.job_counter = self.job_counter - 1
         self.sem.release()
         self._tasks.remove(task)
 
@@ -150,6 +155,8 @@ class Worker:
 
     async def _run_job(self, queue: str, msg_id: str, job: Job):
         await self.sem.acquire()
+        self.job_counter = self.job_counter + 1
+
         if job.expire_time and job.expire_time < timezone.now():
             logger.warning(f"job {job.job_id} is expired, ignore")
             job.status = JobStatus.expired
@@ -245,7 +252,6 @@ class Worker:
 
         job_result.result = result
         await job_result.save()
-        await self.barrier.wait()
         if e and self.narq.raise_job_error:
             raise e
         return job_result
