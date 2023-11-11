@@ -24,6 +24,8 @@ loguru = "*"
 aiofiles = "*"
 asyncmy = { version = "^0.2.8", optional = true }
 asyncpg = { version = "*", optional = true }
+tortoise-orm = { version = "^0.20.0" }
+async-timeout = "^4.0.3"
 
 [tool.poetry.dev-dependencies]
 ruff = "*"
@@ -41,8 +43,8 @@ postgres = ["asyncpg"]
 mysql = ["asyncmy"]
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 narq = "narq.cli:main"
