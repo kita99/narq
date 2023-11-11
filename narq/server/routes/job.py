@@ -8,7 +8,7 @@ from starlette.status import HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 from narq import Narq, constants
 from narq.enums import JobStatus
 from narq.server import templates
-from narq.server.depends import get_pager, get_narq, get_redis
+from narq.server.depends import get_narq, get_pager, get_redis
 from narq.server.models import Job, JobResult
 from narq.server.responses import JobListOut, JobOut
 from narq.server.schemas import AddJobIn, CancelJobIn, TaskStatus, UpdateJobIn

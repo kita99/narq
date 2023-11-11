@@ -6,7 +6,7 @@ from starlette.requests import Request
 
 from narq import Narq, constants
 from narq.server import templates
-from narq.server.depends import get_pager, get_narq, get_redis
+from narq.server.depends import get_narq, get_pager, get_redis
 from narq.server.models import JobResult
 from narq.server.responses import JobResultListOut
 

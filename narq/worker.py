@@ -145,7 +145,6 @@ class Worker:
                     task.add_done_callback(self._task_done)
                     self._tasks.add(task)
 
-
     def _task_done(self, task):
         self.job_counter = self.job_counter - 1
         self.sem.release()
