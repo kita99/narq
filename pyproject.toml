@@ -15,7 +15,7 @@ packages = [
 include = ["LICENSE", "README.md", "CHANGELOG.md"]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.8"
 click = "*"
 redis = "^5.0.1"
 crontab = "*"
